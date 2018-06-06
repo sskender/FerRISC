@@ -10,7 +10,7 @@ LOOP	LDR	R4, [R1], #4		; R4 = R1, R1 = R1 + 4
 	CMP	R3, R4
 	BEQ	KRAJ			; Ucitan zadnji podatak 
 
-	;CMP	R4, #0
+	CMP	R4, #0
 	STREQ	R4, [R2], #4		; R4 -> R2, R2 = R2 + 4
 	BEQ	LOOP			; Smece ne moze dijeliti s nulom
 
