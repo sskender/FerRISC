@@ -9,6 +9,6 @@ Laboratory exercises in FRISC and ARM assembly.
 2  | FRISC Bit parity
 3  | FRISC IO int[0] int[1]
 4  | FRISC DMA
-5  | ARM7 Basics and Stack
-6  | ARM7 GPIO and RTC
+5  | ARM7 Stack
+6  | ARM7 GPIO RTC
 
