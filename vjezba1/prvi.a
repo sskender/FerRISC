@@ -1,0 +1,40 @@
+	ORG 	0
+	LOAD 	R0, (500)		; Broj podataka u bloku (32 bit podatak), sluzi kao brojac (ide na ovaj DW dolje)
+	MOVE 	504, R1			; Sljedeci je za 4 boj je 32 bit, to je prvi element u listi (ide na ovaj DH dolje) 
+	MOVE 	1000, R2		; Pointer na izlaznu listu (ide na ovaj DS dolje)
+
+
+LOOP	LOADB 	R3, (R1+1)		; Ucita se 1B za usporedbe (R3 je kao i u for)
+
+	CMP	R3, 80			; 80 hex: prvi bit 1, ostali 0 pa se gleda je li R3 poz ili neg
+	JP_NZ	CHECK			; Not zero, znaci ne treba komplement, provjeri opseg
+	JP	NEG			; Inace je negativan, preskoci check i odi rijesi to
+
+CHECK	CMP	R3, 00			; Provjeri opseg
+	JP_Z	FILL			; Dodaj prvo cijeli broj u registar onda spremi
+	MOVE	80, R3			; Inace ubaci 80 i spremi (ne treba vise nista dodavati) 
+	JP	SAVE			; Odi spremi
+
+NEG 	LOADB	R3, (R1)		; Cijeli sad unesi u registar (dosad bio samo dio)
+	AND	R3, 0FFFF, R3		; Maska: brise bitove na pocetku (s nulama logx)
+	XOR	R3, 0FFFF, R3 		; Komplement preostalih nizih bitova (po onom pravilu treba 0 dodati ispred hexa slova)
+	ADD	R3, 1, R3		; Dodati jedan boj tako treba u mrtvom komplementu
+	JP	SAVE			; Sad je sve dobro, odi spremi
+
+FILL	LOADB	R3, (R1)		; Cijeli sad unesi u registar (dosad bio samo dio)
+SAVE	STOREB 	R3, (R2)		; Spremi trenutni R3 (i-ti) u izlaznu listu R2 (gore definirana)
+	ADD	R1, 2, R1		; 16 bitni ulazni podaci u listi pa pomakni pointer za 2
+	ADD	R2, 1, R2		; 8 bitni pa se pomice pointer za 1
+	SUB 	R0, 1, R0		; R0 je broj podataka (brojac) pa se umanji za jedan
+	JP_NZ	LOOP			; Ako nisu prosli svi brojevi vrati se gore na sljedeci
+
+
+UDUNI	HALT
+
+
+	ORG 	500			; Ovo oznacuje sto R0 uzima
+	DW	6			; Ovo je taj brojac sto ide u R0 (boj je 6 brojeva)
+	DH	8001, 0002, 0123, 0025, 82BC, 8021
+
+	ORG	1000 			; Ovo oznacuje sto R2 uzima kao izlaznu listu
+	DS	%D 6			; Dodijeli 6 boj isto toliko ima i ulaza

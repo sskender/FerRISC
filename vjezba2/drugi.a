@@ -1,0 +1,83 @@
+	ORG	0
+	MOVE	DATA, R1		; R1 pointer na ulazne podatke (dolje iz DH)
+	MOVE	1000, R7		; Backup podataka (boj se uniste s rotacijom)
+
+
+
+LOOP	LOADH	R2, (R1)		; i-ti podatak iz R1
+	LOADH	R3, (R1+2)		; i-ti + 1 podatak iz R1 (16bit pa se pointer pomice za 2)
+
+
+CHECK1	CMP	R2, 8000		; Vidi prvi
+	JR_EQ	CHECK2			; Prvi je, vidi za drugi
+	JP	SKIP 			; Prvi nije, preskoci provjere
+CHECK2	CMP	R3, 8000		; Vidi sad drugi
+	JR_EQ	EXIT			; I drugi je, uduni
+	JP SKIP				; Drugi nije, preskoci halt
+
+
+SKIP					; Dobri su podaci, nije izasao program, obradi ih sada
+	PUSH R2 			; Baci ovo na stog da potprogram moze uhvatiti
+	PUSH R3				; Baci i ovo na stog da potprogram moze uhvatiti
+
+	CALL	VISE_1			; Kad je sve fino namjesteno zovi covika
+	
+	STORE	R0, (R1)		; Stavi ovo sto je covik donio u R1 (treba zamijeniti)
+	ADD	R1, 4, R1		; Sad su 32 bit u R0, a ne 16 bit pa treba za 4 pointer
+	
+	JP	LOOP			; Ovo usporedjeno, nastavi dalje
+
+
+
+
+EXIT 	HALT				; Uduni (ovdje bi trebali pisati izlazi)
+DATA	DH	1234, 00FF, 00FF, FF01, 0001, FFFF, 002A, 020A, 0456, 0123, 8000, 8000
+
+
+
+
+VISE_1  				; Potpogram
+					; R2 i R3 su na stogu gore stavljeni (to hvata vamo)
+					; Vraca preko R0 (to poslije spremiti negdje gore)
+	LOAD	R2, (R7+8)
+	LOAD	R3, (R7+4)
+	MOVE	0, R4			; Broj jedinica od prvog (R2)
+	MOVE	0, R5			; Broj jedinica od drugog (R3)
+	MOVE	16, R6			; Len podatka (ima 16 bit pa treba znati kada stati lol) 
+
+
+COUNT					; For i in each bit u R2 i R3
+FIRST	ROTR	R2, 1, R2		; Rotiraj PRVI da bit padne u carry
+	JR_NC	SECOND			; Nema 1 u prvom, preskoci povecanje jedinica
+	ADD	R4, 1, R4		; Ima 1 u prvom, povecaj brojac jedinica 
+
+SECOND	ROTR	R3, 1, R3		; Rotiraj DRUGI da bit padne u carry
+	JR_NC	LESS			; Nema 1 u prvom, preskoci povecanje jedinica
+	ADD	R5, 1, R5		; Ima 1 u drugom, povecaj brojac jedinica
+
+LESS	SUB	R6, 1, R6		; Oduzmi broj preostalih bitova (len u R6)
+	JR_NZ	COUNT			; Nije proslo kroz svih 16 bit, continue
+
+
+	CMP	R4, R5			; Usporedi brojace jedinica gdje ima vise
+	JR_UGT	RET1			; Prvi je veci, vrati taj
+	JR_ULT	RET2			; Drugi je veci, vrati taj
+	JR	RET_CON			; Isti su, vrati onu konstantu
+
+
+RET1 	LOADH	R0, (R7+8)		; Spremi prvi iz backupa u R0 koji je messenger (return)
+	JP	EXPAND			; Da se ne prebrise s drugim
+RET2	LOADH	R0, (R7+4)		; Spremi drugi iz backupaa u R0 koji je messenger (return)
+
+					; Sad napravi prosirivanje (16 -> 32), 70.str zbirka
+EXPAND	ROTL	R0, 10, R0		; Pomaknuti ulijevo za 16bit da se dobije predznak
+	JR_P	PLUS			; Pozitivan je (nema 1 na pocetku) bmk
+NEG	OR	R0, 0FFFF, R0		; Zato jer ovako pise u zbirci, isto bmk	
+PLUS	ROTR	R0, 10, R0		; Sad ga vrati nazad kako je bilo prije rotacije
+	RET				; Vrati R0
+
+	
+RET_CON	MOVE	8000, R0 		; Ubaci konstantu
+	SHL	R0, 10, R0		; Pomakni jer smece ne moze procitati kad je cijeli broj fino upisan
+	RET				; Vrati R0
+
