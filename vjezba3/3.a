@@ -1,0 +1,152 @@
+					; Vanjske jedinice
+BVJ1	EQU	0FFFF1000
+
+UVJ2	EQU	0FFFF2000
+UVJ2BS	EQU	0FFFF2004
+
+PVJ3	EQU	0FFFF3000
+PVJ3ACK EQU	0FFFF3004
+PVJ3END	EQU	0FFFF3008
+PVJ3KIL EQU	0FFFF300C
+
+
+
+
+
+
+	ORG	0
+
+	MOVE	10000, SP		; Inicijalizacija stoga
+	JP	GLAVNI
+
+	ORG	8
+	DW	200			; Ovdje je VJ3 (prekidna)
+
+
+
+
+
+
+
+					; Ovo je sad glavni program
+GLAVNI	MOVE	%B 10000, SR		; Dozvoli prekide
+	MOVE	1, R0
+	STORE	R0, (PVJ3KIL)
+
+
+
+					; Provjeri VJ2
+CHKMAIN	LOAD	R0, (UVJ2BS) 		; Ucitaj bistabil stanja, vidi ako ima nesto novo
+	CMP	R0, 1
+	JR_NE	CHKSTOP			; Nema nista novo
+
+					; Ima nesto novo
+	LOAD	R0, (BROJ)		; Ucitaj podatak i javi to jedinici
+	STORE	R0, (UVJ2BS)
+	STORE 	R0, (UVJ2)
+
+	LOAD	R0, (UKUPNO) 		; Broji koliko ih je ukupno poslano
+	ADD	R0, 1, R0
+	STORE	R0, (UKUPNO) 
+
+
+					; Provjeri STOP
+CHKSTOP	LOAD	R0, (STOP)
+	CMP	R0, 1
+	JR_NE	CHKMAIN			; Ne treba udunut, vrati se u petlju
+
+
+
+
+					; Prekid postavljen
+UDUNI	MOVE	0, SR			; Onemoguci prekide i ugasi
+	MOVE 	0, R0			
+	STORE	R0, (PVJ3KIL)
+	HALT
+
+
+
+
+
+
+
+
+
+
+
+
+					; Prekidni potprogram odavde
+					; INT 0 MASKIRAJUCI prekid
+	ORG	200
+PREKID	PUSH	R0 			; Spremi registre
+	MOVE	SR, R0
+	PUSH	R0
+
+	STORE	R0, (PVJ3ACK)		; Javi da je prihvaceno
+
+
+
+	LOAD	R0, (BVJ1)		; Ucitaj s bezuvjetne vanjske jedinice 
+	OR	R0, 0, R0		; Ugasi ako je negativan ucitan
+	JR_P	DOBAR
+
+NEDOBAR	MOVE	1, R0 			; Global stop postavi
+	STORE	R0, (STOP)
+	JR	IZADI
+
+DOBAR	PUSH 	R0			; Baci to na stog za potprogramu
+	CALL	OBRADI
+	ADD	SP, 4, SP		; Zato jer je gore push, a NO POP
+	STORE	R0, (BROJ)		; Rezultat potprograma na lokaciju BROJ 
+
+	LOAD	R0, (UKUPNO)		; Ukupno posalji na VJ3
+	STORE	R0, (PVJ3)		; To posalji na ovu jedinicu 
+
+
+
+IZADI	STORE	R0, (PVJ3END)		; Javi da je gotovo
+
+	POP	R0			; Vrati registre
+	MOVE	R0, SR
+	POP	R0
+
+	RETI
+					; Prekidni potprogram dovde
+
+
+
+
+
+
+
+
+
+
+
+
+
+					; Ovaj potprogram koristi PREKIDNA VJ
+					; Uzmi broj sa stoga i vrati preko R0
+					; Sve su pozitivni brojevi, ne treba nista provjeravati
+OBRADI 	PUSH	R1
+	LOAD	R1, (SP+8)
+
+	MOVE	1, R0
+	ROTL	R0, R1, R0
+
+	POP	R1
+	RET
+
+
+
+
+
+
+
+
+
+
+
+BROJ	DW	0			; Tako je zadano
+UKUPNO	DW	0 			; Spremi koliko je podataka poslano na VJ2
+STOP	DW	0			; Global treba li udunuti sve
