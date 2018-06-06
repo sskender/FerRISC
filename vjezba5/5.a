@@ -1,0 +1,93 @@
+	ORG 	0
+GLAVNI	MOV	R13, #1<16		; inicijalizacija stoga
+	MOV	R1, #1<8		; ulazni blok (100 hex)
+	MOV	R2, #4<8		; izlazni blok (400 hex)
+	LDR	R3, ZADNJI		; ovaj oznacava prekid
+
+
+LOOP	LDR	R4, [R1], #4		; R4 = R1, R1 = R1 + 4
+
+	CMP	R3, R4
+	BEQ	KRAJ			; Ucitan zadnji podatak 
+
+	;CMP	R4, #0
+	STREQ	R4, [R2], #4		; R4 -> R2, R2 = R2 + 4
+	BEQ	LOOP			; Smece ne moze dijeliti s nulom
+
+					; Baci trenutni podatak na stog
+	STMFD 	R13!, {R4}		; STMFD = STMDB (store decrease before)
+					; ! mijenja (povecava) R13
+
+	BL	KUB
+	ADD	R13, R13, #4		; Pozivatelj cisti stog
+
+	SUB	R5, R0, #1
+	MOV	R6, R4, LSL #1		; 2^1 left shift mnozi
+
+	STMFD	R13!, {R5, R6}		; Baci djelitelje na stog
+
+	BL	DIV
+	ADD 	R13, R13, #8		; Ocisti stog
+
+	STR	R0, [R2], #4		; R0 -> R2, R2 = R2 + 4
+
+	B	LOOP			; Continue
+
+
+
+KRAJ	SWI 123456			; Uduni
+
+
+
+
+
+KUB	STMFD	R13!, {R1}		; Spremi kontekst
+	ADD	R0, R13, #4		; Preskakanje konteksta
+	LDMFD	R0, {R1}		; Ucitaj parametar sa stoga 
+	MOV	R0, R1			; Backup broja za kasnije mnozenje
+
+	MUL	R0, R0, R1 		; ^2
+	MUL	R0, R0, R1		; ^3
+
+	LDMFD	R13!, {R1}		; obnova konteksta
+	MOV	PC, LR			; Return
+
+
+
+
+
+DIV 	STMFD	R13!, {R1, R2, R3}  	; Spremi kontekst
+	ADD	R0, R13, #0C		; Preskakanje konteksta
+	LDMFD	R0, {R1, R2}		; Ucitaj parametre sa stoga
+	MOV	R0, #0			; Rezultat
+	MVN	R3, #0			; NOT 0 => FFFF FFFF
+
+DIVNEG	ORRS	R1, R1, R1		; Or signed da se dobije predznak
+	BPL	DIVLOOP			; Pozitivan, preskoci
+
+	SUB	R1, R1, #1		; Pretvori u pozitivne 
+	EOR	R1, R1, R3		; Exclusive OR 
+	SUB	R2, R2, #1
+	EOR	R2, R2, R3
+
+DIVLOOP	SUBS	R1, R1, R2
+	ADDPL	R0, R0, #1
+	BPL	DIVLOOP
+
+	LDMFD	R13!, {R1, R2, R3}	; Obnovi kontekst
+	MOV	PC, LR			; Return
+
+
+
+
+
+	ORG	100 
+ULAZNI	DW	0, 3, 6, 0FFFFFFFF, 0FFFFFFFA, 80000000
+
+
+	ORG	400 
+IZLAZNI	DS	%D 20
+
+
+ZADNJI	DW	80000000
+	

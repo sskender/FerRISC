@@ -1,0 +1,114 @@
+	ORG 	0
+	B	GLAVNI
+	
+
+
+
+
+	ORG	18 			; Adresa za obradu prekida
+PREKID	STMFD	R13!, {R2,R3,R4,R14}	; Spremanje konteksta na stog
+						; R2: temp, ><, znak
+						; R3: CUNT 3
+						; R4: INDEX
+						; R14: ugnjezdjeni program, spremi povratnu adresu
+
+	STR	R0, [R0, #8]		; Prihvat prekida
+	MOV	R2, #0 			; Resetiraj brojilo
+	STR	R2, [R0, #0C]
+
+
+	MOV	R2, #0D			; Brisi interni registar na LCD-u (hint: 0D i 0A)
+	BL	LCDWR
+
+VECI	LDR	R3, CUNT		; Load 3
+	LDR	R2, VECE		; Load >
+PRINT1	BL	LCDWR
+	SUBS	R3, R3, #1
+	BNE	PRINT1			; While !Z
+
+
+ZNAK 	LDR	R4, INDEX
+	ADD	R4, R4, #4<8 		; INDEX + ORG 400 (odmak)
+	LDRB	R2, [R4]
+
+	CMP	R2, #0
+	BNE	PRINTZ
+	MOV	R4, #0 			; Zadnji znak ucitan, resetiraj na prvi
+	ADD	R4, R4, #4<8
+	LDRB	R2, [R4]
+
+PRINTZ	ADD	R4, R4, #1		; Spremi uvecani INDEX i prikazi znak
+	SUB	R4, R4, #4<8		; INDEX - ORG 400
+	STR	R4, INDEX
+	BL	LCDWR
+
+
+MANJI 	LDR	R3, CUNT
+	LDR	R2, MANJE
+PRINT2	BL	LCDWR
+	SUBS	R3, R3, #1
+	BNE	PRINT2
+
+	MOV	R2, #0A 		; Ispis znaka na zaslonu LCD-a (hint: 0D i 0A)
+	BL	LCDWR
+
+
+	LDMFD	R13!, {R2,R3,R4,R14}	; Obnavljanje konteksta
+	SUBS	PC, LR, #4		; Kraj prekidnog programa
+					; Izlaz
+
+
+
+
+
+GLAVNI	MOV	R13, #1<16		; Inicijalizacija stoga 
+	MRS	R0, CPSR		; procitaj CPSR
+	BIC	R0, R0, #80		; Na mjestu bita I stavlja se nula
+	MSR	CPSR_c, R0		; Zapisi promjene u CPSR
+
+	MOV	R2, #5<8		; Na adresi 500 se nalaze adrese RTC i GPIO
+	LDMIA	R2!, {R0, R1} 		; R0 = RTC, R1 = GPIO (load memory increment after)
+
+	MOV	R2, #1<8		; 100 hex = 256 Hz
+	STR	R2, [R0, #4]		; Napuni RTCMR (brojac)
+
+	MOV	R2, #1			; Omoguci prekid na RTCCR
+	STR	R2, [R0, #10]
+
+PETLJA	B	PETLJA			; Prazna petlja
+
+
+
+
+
+LCDWR	STMFD	R13!, {R2} 		; Spremanje konteksta
+						; R1: GPIO adresa
+						; R2: ASCII vrijednost znaka koji se ispisuje
+
+	AND	R2, R2, #7F		; Postaviti bit 7 u nulu (za svaki slucaj)
+	STRB	R2, [R1, #4]
+	ORR	R2, R2, #80		; Postaviti bit 7 u jedan (podigni impuls)
+	STRB	R2, [R1, #4]
+	AND	R2, R2, #7F 		; Postaviti bit 7 u nulu (spusti impuls)
+	STRB	R2, [R1, #4]
+
+	LDMFD	R13!, {R2} 		; Obnavljanje konteksta
+	MOV	PC, LR			; Kraj prekidnog programa
+
+
+
+
+
+	ORG	400
+SLOVA	DB	49, 6E, 74, 65, 72, 6E, 61, 74, 69, 6F, 6E, 61, 6C, 69, 73, 61, 74, 69, 6F, 6E, 0
+
+
+
+	ORG	500
+RTC	DW	0FFFFFE00 		; Adresa RTC-a
+GPIO	DW	0FFFFFF00		; Adresa GPIO-a
+INDEX	DW	0			; Trenutno slovo counter
+CUNT	DW	3			; Tri puta manje / vece brojac
+VECE	DW	3E
+MANJE	DW	3C
+
